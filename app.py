@@ -32,6 +32,7 @@ def generiraj():
         
         headers = {'Content-Type': 'application/json'}
         
+        # Navodilo za AI je zdaj veliko bolj natančno in zahteva specifičen format
         prompt = f"""
         Uporabnik je na lokaciji {lokacija}.
         Uporabnik se počuti {mood}.
@@ -39,8 +40,14 @@ def generiraj():
         Proračun za aktivnost: {proracun}.
         Razpoložljiv čas: {trajanje}.
 
-        Na podlagi teh podrobnosti predlagaj 3 specifične in zabavne aktivnosti v Sloveniji (najbolje v bližini uporabnikove lokacije), ki bi mu ustrezale.
-        Odgovori v slovenščini, bodi kratek in uporabi alineje.
+        Predlagaj 3 specifične in zabavne aktivnosti v Sloveniji (najbolje v bližini uporabnikove lokacije).
+        
+        STRIKTNA NAVODILA ZA OBLIKOVANJE:
+        1. Vsako aktivnost začni z naslovom, ki naj bo med zvezdicami (npr. **Ime aktivnosti**).
+        2. Pod naslovom napiši kratek opis.
+        3. Na koncu vsake aktivnosti dodaj povezavo do Google Zemljevidov v točnem Markdown formatu: [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije+Slovenija)
+        4. Vsako aktivnost loči s tremi pomišljaji (---).
+        Odgovori v slovenščini in bodi jedrnat.
         """
         
         payload = {
