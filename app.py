@@ -28,31 +28,26 @@ def generiraj():
         trajanje = podatki.get('trajanje', 'CEL DAN')
         
         # UPORABLJAMO ZMAGOVALNI MODEL, ki ga tvoj ključ dejansko podpira
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
         
         headers = {'Content-Type': 'application/json'}
         
-     # Stroga navodila, da preprečiva halucinacije in zagotoviva realne lokacije
+        # Navodilo za AI je zdaj veliko bolj natančno in zahteva specifičen format
         prompt = f"""
-        Danes si lokalni slovenski vodič. Uporabnik je v kraju: {lokacija}.
+        Uporabnik je na lokaciji {lokacija}.
+        Uporabnik se počuti {mood}.
+        Uporabnik gre na aktivnost s to družbo: {druzba}.
+        Proračun za aktivnost: {proracun}.
+        Razpoložljiv čas: {trajanje}.
+
+        Predlagaj 3 specifične in zabavne aktivnosti v Sloveniji (najbolje v bližini uporabnikove lokacije).
         
-        PODATKI ZA FILTRIRANJE:
-        - Družba: {druzba}
-        - Proračun: {proracun} (Če je 0€, predlagaj le naravo, razglede, parke. Če je več, vključi lokale, vstopnine, hrano.)
-        - Čas: {trajanje}
-        - Razpoloženje: {mood}
-
-        TVOJA NALOGA:
-        Predlagaj 3 REALNE in OBSTOJEČE lokacije v Sloveniji. 
-        NE si izmišljevati imen. Če ne poznaš točnega imena lokala v tistem kraju, predlagaj splošno znano turistično točko (npr. grad, jezero, razgledni stolp).
-
-        OBLIKOVANJE ODGOVORA (STRIKTNO):
-        1. Vsaka aktivnost se začne z: **Ime realne lokacije**
-        2. Kratek, uporaben opis (kaj početi, zakaj je fajn).
-        3. Google Maps povezava v formatu: [📍 Odpri v Zemljevidih](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije+{lokacija})
-        4. Med predlogi uporabi ločilno črto: ---
-
-        Bodi kratek, jasen in uporaben. Odgovori v slovenščini.
+        STRIKTNA NAVODILA ZA OBLIKOVANJE:
+        1. Vsako aktivnost začni z naslovom, ki naj bo med zvezdicami (npr. **Ime aktivnosti**).
+        2. Pod naslovom napiši kratek opis.
+        3. Na koncu vsake aktivnosti dodaj povezavo do Google Zemljevidov v točnem Markdown formatu: [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije+Slovenija)
+        4. Vsako aktivnost loči s tremi pomišljaji (---).
+        Odgovori v slovenščini in bodi jedrnat.
         """
         
         payload = {
