@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 # 2. Varno preberemo ključ iz .env datoteke
-API_KEY = 
+API_KEY = os.environ.get("GEMINI_API_KEY")
 
 # Varnostno preverjanje, da takoj veš, če .env ne deluje
 if not API_KEY:
