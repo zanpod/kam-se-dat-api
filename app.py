@@ -31,7 +31,7 @@ def generiraj_predloge():
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
 
-    # POPRAVLJEN IN OPTIMIZIRAN PROMPT
+    # POPRAVLJEN IN ČIST PROMPT (brez dvojnih navodil)
     prompt = f"""
     Deluješ kot strokovni, realistični slovenski lokalni vodič. 
     Tvoja edina naloga je predlagati natanko 3 resnične, obstoječe ideje za izlet ali aktivnost na podlagi spodnjih parametrov. Ne piši uvodnih ali zaključnih pozdravov.
