@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
@@ -18,43 +19,57 @@ if not API_KEY:
     print("🚨 KRITIČNA NAPAKA: API ključ ni najden! Preveri, če imaš datoteko .env in v njej GEMINI_API_KEY=...")
 
 @app.route('/generiraj', methods=['POST'])
-def generiraj():
-    try:
-        podatki = request.json
-        mood = podatki.get('mood', 'aktivno')
-        lokacija = podatki.get('lokacija', 'Neznana lokacija')
-        druzba = podatki.get('druzba', 'SAM')
-        proracun = podatki.get('proracun', 'ZMERNO')
-        trajanje = podatki.get('trajanje', 'CEL DAN')
-        
-        # UPORABLJAMO ZMAGOVALNI MODEL, ki ga tvoj ključ dejansko podpira
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+def generiraj_predloge():
+    data = request.json
+    lokacija = data.get('lokacija')
+    druzba = data.get('druzba')
+    proracun = data.get('proracun')
+    trajanje = data.get('trajanje')
+    mood = data.get('mood')
 
-        headers = {'Content-Type': 'application/json'}
-        
-        # Navodilo za AI je zdaj veliko bolj natančno in zahteva specifičen format
-        prompt = f"""
-        Uporabnik je na lokaciji {lokacija}.
-        Uporabnik se počuti {mood}.
-        Uporabnik gre na aktivnost s to družbo: {druzba}.
-        Proračun za aktivnost: {proracun}.
-        Razpoložljiv čas: {trajanje}.
+    # ---- OD TUKAJ NAPREJ PRILEPIŠ NOVO KODO ----
+    # Pridobimo trenutni čas in dan (da AI ne pošilja v zaprte gostilne)
+    trenutni_cas = datetime.now().strftime("%H:%M")
+    trenutni_dan = datetime.now().strftime("%A")
 
-        Predlagaj 3 specifične in zabavne aktivnosti v Sloveniji (najbolje v bližini uporabnikove lokacije).
-        
-        STRIKTNA NAVODILA ZA OBLIKOVANJE:
-        1. Vsako aktivnost začni z naslovom, ki naj bo med zvezdicami (npr. **Ime aktivnosti**).
-        2. Pod naslovom napiši kratek opis.
-        3. Na koncu vsake aktivnosti dodaj povezavo do Google Zemljevidov v točnem Markdown formatu: [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije+Slovenija)
-        4. Vsako aktivnost loči s tremi pomišljaji (---).
-        Odgovori v slovenščini in bodi jedrnat.
-        """
-        
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }]
-        }
+    prompt = f"""
+    Deluješ kot vrhunski, realistični slovenski lokalni vodič. 
+    Uporabnik išče idejo za aktivnost. Strogo upoštevaj spodnje parametre in trenutni čas!
+
+    PODATKI UPORABNIKA:
+    - Izhodiščni kraj: {lokacija}
+    - Družba: {druzba}
+    - Proračun: {proracun}
+    - Čas na voljo: {trajanje}
+    - Želeno razpoloženje: {mood}
+    
+    TRENUTNO STANJE (ZELO POMEMBNO):
+    - Trenutni dan: {trenutni_dan}
+    - Trenutna ura: {trenutni_cas}
+
+    STROGA PRAVILA ZA GENERIRANJE (Če jih prekršiš, bo aplikacija neuporabna):
+    1. BREZ HALUCINACIJ: Predlagaj SAMO 3 resnične, obstoječe lokacije v Sloveniji. Ne izmišljuj si imen lokalov ali naravnih znamenitosti. Če nisi 100% prepričan, predlagaj splošno znano točko.
+    2. LOKACIJSKA LOGIKA ('{trajanje}'):
+       - Če je čas "Do 2 uri", predlagaj lokacije, ki so od izhodišča oddaljene MAX 15-20 minut.
+       - Če je čas "Pol dneva" ali več, lahko predlagaš zanimivosti v širši regiji (do 1 ure vožnje).
+    3. URNIK IN ODPIRALNI ČASI:
+       - Poglej "Trenutno uro". Če je ura zvečer ali ponoči (npr. po 21:00), NE predlagaj muzejev, parkov, ki se zaklepajo, ali dnevnih kavarn. Predlagaj večerne aktivnosti (bare, nočne sprehode, odprte razglede).
+       - Zjutraj predlagaj kavo, zajtrk, jutranje pohode.
+    4. PRORAČUN ('{proracun}'): Če je 0€, strogo prepovedano predlagati restavracije, vstopnine ali plačljiva parkirišča.
+
+    FORMAT ODGOVORA (za vsako izmed 3 točk):
+    **Ime realne lokacije**
+    Kratek in jedrnat opis (povej, zakaj je to primerno glede na družbo in čas).
+    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query={{ime_lokacije_in_kraj}})
+    ---
+    """
+    # ---- TUKAJ SE NOVA KODA KONČA ----
+
+    # Spodaj ostane tvoja stara koda, ki pošlje zahtevek na Google:
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    # ... itd ...
 
         res = requests.post(url, headers=headers, json=payload)
         res_data = res.json()
