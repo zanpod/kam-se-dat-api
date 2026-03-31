@@ -31,9 +31,10 @@ def generiraj_predloge():
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
 
+    # POPRAVLJEN IN OPTIMIZIRAN PROMPT
     prompt = f"""
-    Deluješ kot vrhunski, realistični slovenski lokalni vodič. 
-    Uporabnik išče idejo za aktivnost. Strogo upoštevaj spodnje parametre in trenutni čas!
+    Deluješ kot strokovni, realistični slovenski lokalni vodič. 
+    Tvoja edina naloga je predlagati natanko 3 resnične, obstoječe ideje za izlet ali aktivnost na podlagi spodnjih parametrov. Ne piši uvodnih ali zaključnih pozdravov.
 
     PODATKI UPORABNIKA:
     - Izhodiščni kraj: {lokacija}
@@ -46,21 +47,24 @@ def generiraj_predloge():
     - Trenutni dan: {trenutni_dan}
     - Trenutna ura: {trenutni_cas}
 
-    STROGA PRAVILA ZA GENERIRANJE (Če jih prekršiš, bo aplikacija neuporabna):
-    1. BREZ HALUCINACIJ: Predlagaj SAMO 3 resnične, obstoječe lokacije v Sloveniji. Ne izmišljuj si imen lokalov ali naravnih znamenitosti. Če nisi 100% prepričan, predlagaj splošno znano točko.
-    2. LOKACIJSKA LOGIKA ('{trajanje}'):
-       - Če je čas "Do 2 uri", predlagaj lokacije, ki so od izhodišča oddaljene MAX 15-20 minut.
-       - Če je čas "Pol dneva" ali več, lahko predlagaš zanimivosti v širši regiji (do 1 ure vožnje).
-    3. URNIK IN ODPIRALNI ČASI:
-       - Poglej "Trenutno uro". Če je ura zvečer ali ponoči (npr. po 21:00), NE predlagaj muzejev, parkov, ki se zaklepajo, ali dnevnih kavarn. Predlagaj večerne aktivnosti (bare, nočne sprehode, odprte razglede).
-       - Zjutraj predlagaj kavo, zajtrk, jutranje pohode.
-    4. PRORAČUN ('{proracun}'): Če je 0€, strogo prepovedano predlagati restavracije, vstopnine ali plačljiva parkirišča.
+    STROGA PRAVILA (Upoštevaj jih brez izjem!):
+    1. PREVERJENA RESNIČNOST: Predlagaj SAMO dejansko obstoječe, znane lokacije, restavracije, parke ali znamenitosti v Sloveniji. PREPOVEDANO je izmišljevanje imen. Če ne poznaš specifičnega lokala v izbranem kraju, predlagaj najbolj znano naravno znamenitost ali javen trg v tem kraju.
+    2. ČAS IN ODPIRALNOST: Upoštevaj, da je danes {trenutni_dan} in ura {trenutni_cas}. Če je večer/noč (po 20:00), NE predlagaj muzejev, zaprtih parkov, gozdov ali jutranjih kavarn. Predlagaj izključno nočne aktivnosti, odprte bare ali varno dostopne večerne razglede.
+    3. LOGIKA ODDALJENOSTI: Če je čas "{trajanje}" kratek (npr. "Do 2 uri"), morajo biti lokacije v neposredni bližini kraja {lokacija} (maksimalno 15 minut stran).
+    4. PRORAČUN: Če je izbran proračun "0€ (BREZPLAČNO)", so restavracije, lokali s pijačo in plačljive vstopnine strogo prepovedani. Predlagaj samo brezplačno naravo, javne sprehajalne poti ali razgledne točke.
 
-    FORMAT ODGOVORA (za vsako izmed 3 točk):
-    **Ime realne lokacije**
-    Kratek in jedrnat opis (povej, zakaj je to primerno glede na družbo in čas).
-    [📍 Prikaži na zemljevidu](https://maps.google.com/?q={{ime_lokacije_in_kraj}})
+    ZAHTEVAN FORMAT ODGOVORA (Vrni samo ta format, ničesar drugega):
+    **1. Ime resnične lokacije, Kraj**
+    Kratek opis (1-2 stavka o tem, zakaj je lokacija super izbira glede na družbo in počutje).
+    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     ---
+    **2. Ime resnične lokacije, Kraj**
+    Kratek opis...
+    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+    ---
+    **3. Ime resnične lokacije, Kraj**
+    Kratek opis...
+    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     """
 
     try:
