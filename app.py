@@ -27,7 +27,6 @@ def generiraj_predloge():
     trajanje = data.get('trajanje')
     mood = data.get('mood')
 
-    # ---- OD TUKAJ NAPREJ PRILEPIŠ NOVO KODO ----
     # Pridobimo trenutni čas in dan (da AI ne pošilja v zaprte gostilne)
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
@@ -60,23 +59,27 @@ def generiraj_predloge():
     FORMAT ODGOVORA (za vsako izmed 3 točk):
     **Ime realne lokacije**
     Kratek in jedrnat opis (povej, zakaj je to primerno glede na družbo in čas).
-    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query={{ime_lokacije_in_kraj}})
+    [📍 Prikaži na zemljevidu](https://maps.google.com/?q={{ime_lokacije_in_kraj}})
     ---
     """
-    # ---- TUKAJ SE NOVA KODA KONČA ----
 
-    # Spodaj ostane tvoja stara koda, ki pošlje zahtevek na Google:
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-    # ... itd ...
+    try:
+        # Pripravimo URL in GLAVE za Google API klic
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+        headers = {'Content-Type': 'application/json'}
+        
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}]
+        }
 
         res = requests.post(url, headers=headers, json=payload)
         res_data = res.json()
         
         if 'error' in res_data:
             print(f"Google API napaka: {res_data['error']}")
-            return jsonify({"error": res_data['error']['message']}), 500
+            # Varno preberemo sporočilo napake, če obstaja
+            error_msg = res_data['error'].get('message', 'Neznana API napaka')
+            return jsonify({"error": error_msg}), 500
 
         if res_data and 'candidates' in res_data and len(res_data['candidates']) > 0:
             odgovor_ai = res_data['candidates'][0]['content']['parts'][0]['text']
