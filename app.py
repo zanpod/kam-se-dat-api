@@ -5,36 +5,31 @@ from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
 
-# 1. Naložimo nastavitve iz .env datoteke
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# 2. Varno preberemo ključ iz .env datoteke
 API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Varnostno preverjanje, da takoj veš, če .env ne deluje
 if not API_KEY:
-    print("🚨 KRITIČNA NAPAKA: API ključ ni najden! Preveri, če imaš datoteko .env in v njej GEMINI_API_KEY=...")
+    print("🚨 KRITIČNA NAPAKA: API ključ ni najden!")
 
 @app.route('/generiraj', methods=['POST'])
 def generiraj_predloge():
     data = request.json
-    lokacija = data.get('lokacija')
-    druzba = data.get('druzba')
-    proracun = data.get('proracun')
-    trajanje = data.get('trajanje')
-    mood = data.get('mood')
+    lokacija = data.get('lokacija', 'Slovenija')
+    druzba = data.get('druzba', 'neznano')
+    proracun = data.get('proracun', 'zmerno')
+    trajanje = data.get('trajanje', 'pol dneva')
+    mood = data.get('mood', 'nevtralno')
 
-    # Pridobimo trenutni čas in dan (da AI ne pošilja v zaprte gostilne)
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
 
-    # POPRAVLJEN IN ČIST PROMPT (brez dvojnih navodil)
     prompt = f"""
-    Deluješ kot strokovni, realistični slovenski lokalni vodič. 
-    Tvoja edina naloga je predlagati natanko 3 resnične, obstoječe ideje za izlet ali aktivnost na podlagi spodnjih parametrov. Ne piši uvodnih ali zaključnih pozdravov.
+    Deluješ kot strokovni slovenski lokalni vodič. 
+    Predlagaj natanko 3 resnične, obstoječe ideje za izlet ali aktivnost.
 
     PODATKI UPORABNIKA:
     - Izhodiščni kraj: {lokacija}
@@ -43,32 +38,25 @@ def generiraj_predloge():
     - Čas na voljo: {trajanje}
     - Želeno razpoloženje: {mood}
     
-    TRENUTNO STANJE (ZELO POMEMBNO):
+    TRENUTNO STANJE:
     - Trenutni dan: {trenutni_dan}
     - Trenutna ura: {trenutni_cas}
 
-    STROGA PRAVILA (Upoštevaj jih brez izjem!):
-    1. PREVERJENA RESNIČNOST: Predlagaj SAMO dejansko obstoječe, znane lokacije, restavracije, parke ali znamenitosti v Sloveniji. PREPOVEDANO je izmišljevanje imen. Če ne poznaš specifičnega lokala v izbranem kraju, predlagaj najbolj znano naravno znamenitost ali javen trg v tem kraju.
-    2. ČAS IN ODPIRALNOST: Upoštevaj, da je danes {trenutni_dan} in ura {trenutni_cas}. Če je večer/noč (po 20:00), NE predlagaj muzejev, zaprtih parkov, gozdov ali jutranjih kavarn. Predlagaj izključno nočne aktivnosti, odprte bare ali varno dostopne večerne razglede.
-    3. LOGIKA ODDALJENOSTI: Če je čas "{trajanje}" kratek (npr. "Do 2 uri"), morajo biti lokacije v neposredni bližini kraja {lokacija} (maksimalno 15 minut stran).
-    4. PRORAČUN: Če je izbran proračun "0€ (BREZPLAČNO)", so restavracije, lokali s pijačo in plačljive vstopnine strogo prepovedani. Predlagaj samo brezplačno naravo, javne sprehajalne poti ali razgledne točke.
+    STROGA PRAVILA:
+    1. PREVERJENA RESNIČNOST: Predlagaj SAMO dejansko obstoječe lokacije v Sloveniji.
+    2. ČAS IN ODPIRALNOST: Upoštevaj trenutni dan in uro. Če je večer/noč, predlagaj le odprte ali zunanje lokacije primerne za noč.
+    3. ODDALJENOST: Če je čas kratki, predlagaj lokacije blizu izhodišča.
+    4. PRORAČUN: Če je izbrano '0€', so plačljive vstopnine strogo prepovedane.
 
-    ZAHTEVAN FORMAT ODGOVORA (Vrni samo ta format, ničesar drugega):
+    ZAHTEVAN FORMAT ODGOVORA (Vrni samo to, ničesar drugega):
     **1. Ime resnične lokacije, Kraj**
-    Kratek opis (1-2 stavka o tem, zakaj je lokacija super izbira glede na družbo in počutje).
-    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+    Kratek opis (1-2 stavka).
+    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query={lokacija})
     ---
-    **2. Ime resnične lokacije, Kraj**
-    Kratek opis...
-    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
-    ---
-    **3. Ime resnične lokacije, Kraj**
-    Kratek opis...
-    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     """
 
     try:
-        # Pripravimo URL in GLAVE za Google API klic
+        # TUKAJ JE NASTAVLJEN GEMINI 2.5 FLASH
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
         headers = {'Content-Type': 'application/json'}
         
@@ -80,12 +68,9 @@ def generiraj_predloge():
         res_data = res.json()
         
         if 'error' in res_data:
-            print(f"Google API napaka: {res_data['error']}")
-            # Varno preberemo sporočilo napake, če obstaja
-            error_msg = res_data['error'].get('message', 'Neznana API napaka')
-            return jsonify({"error": error_msg}), 500
+            return jsonify({"error": res_data['error'].get('message', 'API napaka')}), 500
 
-        if res_data and 'candidates' in res_data and len(res_data['candidates']) > 0:
+        if res_data and 'candidates' in res_data:
             odgovor_ai = res_data['candidates'][0]['content']['parts'][0]['text']
             return jsonify({"odgovor": odgovor_ai})
         else:
@@ -99,4 +84,4 @@ if __name__ == '__main__':
     print("-----------------------------------------")
     print("STREŽNIK TEČE NA: http://127.0.0.1:5005")
     print("-----------------------------------------")
-    app.run(host='127.0.0.1', port=5005, debug=True)
+    app.run(host='0.0.0.0', port=5005, debug=True)
