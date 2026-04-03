@@ -68,8 +68,7 @@ def generiraj_predloge():
     """
 
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-        headers = {'Content-Type': 'application/json'}
+       url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={API_KEY}"
         
         # NOVO: Dodana nastavitev za temperaturo (0.9 pomeni večjo kreativnost)
         payload = {
