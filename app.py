@@ -15,6 +15,8 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 if not API_KEY:
     print("🚨 KRITIČNA NAPAKA: API ključ ni najden!")
 
+# ... (začetek app.py ostane enak) ...
+
 @app.route('/generiraj', methods=['POST'])
 def generiraj_predloge():
     data = request.json
@@ -23,6 +25,14 @@ def generiraj_predloge():
     proracun = data.get('proracun', 'zmerno')
     trajanje = data.get('trajanje', 'pol dneva')
     mood = data.get('mood', 'nevtralno')
+    
+# ... (začetek funkcije je enak) ...
+
+    # 1. NOVO: Veliko ostrejša prepoved za AI
+    ze_predlagano = data.get('zePredlagano', [])
+    izkljucitve_tekst = ""
+    if len(ze_predlagano) > 0:
+        izkljucitve_tekst = f"\n⚠️ STROGA PREPOVED: Naslednje lokacije si uporabniku ŽE predlagal: {', '.join(ze_predlagano)}. NIKAKOR jih ne smeš ponoviti v tem odgovoru! Poišči povsem druge, nove, morda malo manj znane alternative v okolici."
 
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
@@ -41,12 +51,14 @@ def generiraj_predloge():
     TRENUTNO STANJE:
     - Trenutni dan: {trenutni_dan}
     - Trenutna ura: {trenutni_cas}
+    {izkljucitve_tekst}
 
     STROGA PRAVILA:
     1. PREVERJENA RESNIČNOST: Predlagaj SAMO dejansko obstoječe lokacije v Sloveniji.
     2. ČAS IN ODPIRALNOST: Upoštevaj trenutni dan in uro. Če je večer/noč, predlagaj le odprte ali zunanje lokacije primerne za noč.
     3. ODDALJENOST: Če je čas kratki, predlagaj lokacije blizu izhodišča.
     4. PRORAČUN: Če je izbrano '0€', so plačljive vstopnine strogo prepovedane.
+    5. RAZNOLIKOST: Ne ponavljaj najbolj očitnih znamenitosti. Išči skrite kotičke, razgledne točke, specifične pohodne poti ali sosednje vasi.
 
     ZAHTEVAN FORMAT ODGOVORA (Vrni samo to, ničesar drugega):
     **1. Ime resnične lokacije, Kraj**
@@ -56,16 +68,22 @@ def generiraj_predloge():
     """
 
     try:
-        # TUKAJ JE NASTAVLJEN GEMINI 2.5 FLASH
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
         headers = {'Content-Type': 'application/json'}
         
+        # NOVO: Dodana nastavitev za temperaturo (0.9 pomeni večjo kreativnost)
         payload = {
-            "contents": [{"parts": [{"text": prompt}]}]
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.9,
+                "topP": 0.95
+            }
         }
 
         res = requests.post(url, headers=headers, json=payload)
         res_data = res.json()
+        
+        # ... (konec funkcije je enak) ...
         
         if 'error' in res_data:
             return jsonify({"error": res_data['error'].get('message', 'API napaka')}), 500
