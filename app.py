@@ -1,4 +1,3 @@
-python
 import os
 from datetime import datetime
 from flask import Flask, request, jsonify
@@ -55,7 +54,6 @@ def generiraj_predloge():
         ze_predlagano = data.get('zePredlagano', [])
 
         trenutni_cas = datetime.now().strftime("%H:%M")
-        trenutni_dan = datetime.now().strftime("%A")
 
         # ====================== SPONZOR ======================
         sponzorski_tekst = ""
