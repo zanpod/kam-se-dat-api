@@ -34,85 +34,25 @@ def generiraj_predloge():
     proracun = data.get('proracun')
     trajanje = data.get('trajanje')
     mood = data.get('mood')
-    ze_predlagano = data.get('zePredlagano', []) # NOVO: Preberemo zgodovino iz brskalnika!
+    ze_predlagano = data.get('zePredlagano', [])
 
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
 
-    # ==========================================
-    # LOGIKA ZA ZGODOVINO (Da se AI ne ponavlja)
-    # ==========================================
     zgodovina_navodilo = ""
     if ze_predlagano and len(ze_predlagano) > 0:
-        zgodovina_navodilo = f"\nOPOZORILO: Temu uporabniku si danes ŽE PREDLAGAL naslednje lokacije: {', '.join(ze_predlagano)}. TEH LOKACIJ NE SMEŠ VEČ OMENITI! Najdi 3 popolnoma nove.\n"
+        zgodovina_navodilo = f"\nOPOZORILO: Ne ponujaj teh lokacij, ker so že bile predlagane: {', '.join(ze_predlagano)}.\n"
 
     # ==========================================
-    # LOGIKA ZA BAZO SPONZORJEV (MONETIZACIJA)
+    # "NUKLEARNA OPCIJA" - PRISILNO LEPLJENJE OGLASA
     # ==========================================
-    sponzorsko_navodilo = ""
+    sponzorski_tekst_za_vrh = ""
+    stevilo_ai_idej = 3
     
-    if proracun != "0€ (BREZPLAČNO)":
-        try:
-            odgovor_baze = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
-            podatki = odgovor_baze.data
-
-            if podatki and len(podatki) > 0:
-                sponzor = podatki[0] 
-                
-                # Preverimo, da nismo sponzorja slučajno že predlagali prejšnjič
-                if sponzor['ime'] not in ze_predlagano:
-                    sponzorsko_navodilo = f"""
-    *** VIP SPONZORSKA ZAHTEVA (ABSOLUTNA PRIORITETA) ***
-    Za 1. IDEJO (na prvem mestu) MORAŠ obvezno predlagati točno to lokacijo: '{sponzor['ime']}'. 
-    Dodatne informacije naročnika (vključi jih v privlačen opis): '{sponzor.get('opis', '')}'.
-    Prilagodi opis te lokacije tako, da se bo popolnoma ujemal z moodom '{mood}' in družbo '{druzba}'.
-    Ostali 2 ideji najdita sama, a naj bosta iz preostalih kategorij.
-                    """
-        except Exception as e:
-            print(f"Napaka pri branju iz baze: {e}")
-
-    # ==========================================
-    # PROMPT ZA UMETNO INTELIGENCO
-    # ==========================================
-    prompt = f"""
-    Deluješ kot vrhunski slovenski 'lokalni insider' in kurator doživetij. Ne ponujaš dolgočasnih, generičnih turističnih nasvetov, ampak izjemno specifične, preverjene in butične ideje, prilagojene trenutnemu počutju in družbi.
-    Tvoja naloga je predlagati natanko 3 resnične, obstoječe ideje za izlet ali aktivnost na podlagi spodnjih parametrov. Ne piši uvodnih ali zaključnih pozdravov.
-
-    PODATKI UPORABNIKA:
-    - Izhodiščni kraj: {lokacija}
-    - Družba: {druzba}
-    - Proračun: {proracun}
-    - Čas na voljo: {trajanje}
-    - Želeno razpoloženje: {mood}
-    
-    TRENUTNO STANJE (ZELO POMEMBNO):
-    - Trenutni dan: {trenutni_dan}
-    - Trenutna ura: {trenutni_cas}
-    {zgodovina_navodilo}
-    {sponzorsko_navodilo}
-
-    EKSTREMNO STROGA PRAVILA ZA PROFESIONALNO KAKOVOST:
-    1. PRAVILO TREH KATEGORIJ (ABSOLUTNA RAZNOLIKOST): Vseh 3 predlogov mora biti iz popolnoma različnih svetov. NIKOLI ne ponudi dveh istih tipov aktivnosti.
-       - Če proračun NI 0€, strukturiraj tako: 
-         * 1. ideja: KULINARIKA / HEDONIZEM (specifična kavarna, slaščičarna, vinska klet ali restavracija - navedi točno ime!).
-         * 2. ideja: NARAVA / AKTIVNOST (točno določena sprehajalna pot, jezero, hrib ali razgledna točka).
-         * 3. ideja: DOŽIVETJE / URBANI UTRIP (kultura, muzej, grad, wellness, ali specifičen trg v mestu).
-       - Če proračun JE "0€ (BREZPLAČNO)", strukturiraj tako: 
-         * 1. ideja: SKRIT NARAVNI KOTIČEK (ne najbolj znana pot, ampak nekaj bolj lokalnega in mirnega).
-         * 2. ideja: URBANI SPREHOD / ARHITEKTURA (zanimiv del mesta, trg, stare uličice).
-         * 3. ideja: NAJBOLJŠI LOKALNI RAZGLED (specifična točka za opazovanje sončnega zahoda ali mesta).
-         
-    2. SPECIFIČNOST "LOKALCA": Ne piši "Pojdite v eno izmed lokalnih kavarn". Piši "Naročite domačo torto v Kavarni Zvezda". Ne piši "Sprehodite se ob reki". Piši "Sprehodite se po levem bregu Savinje do mostu...". Navedi TOČNA IN RESNIČNA IMENA lokalov in lokacij.
-
-    3. PRILAGODITEV MOODU IN DRUŽBI: Odgovor mora vibrirati z izbranim počutjem. Če je mood "{mood}" in družba "{druzba}", mora opis jasno odražati, zakaj je to popolna izbira za točno to situacijo.
-
-    4. PREVERJENA RESNIČNOST IN URA: Ne ugibaj in ne haluciniraj imen! Upoštevaj {trenutni_dan} in {trenutni_cas}. Če je ura po 20:00, ponujaj izključno varne, odprte večerne lokacije (osvetljene poti, nočni razgledi, odprti pubi).
-
-    5. GEOGRAFSKA FLEKSIBILNOST: Če izhodiščni kraj {lokacija} nima dovolj specifičnih opcij, samodejno in inteligentno poišči najboljše ideje v sosednjih vaseh ali mestih, ki so oddaljena maksimalno 15-20 minut vožnje.
-
-    ZAHTEVAN FORMAT ODGOVORA (Vrni samo ta format, ničesar drugega, ohrani zvezdice in ločila zaradi frontend parserja):
+    # Privzet format, če NI sponzorja
+    format_odgovora = """
     **1. Ime točno določene lokacije, Kraj**
-    Kratek opis (2-3 stavki, pisan doživljajsko, prodajno in privlačno. Razloži, KAJ točno naj tam počnejo, jedo ali vidijo, ter zakaj ustreza njihovemu počutju).
+    Kratek opis...
     [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     ---
     **2. Ime točno določene lokacije, Kraj**
@@ -122,6 +62,57 @@ def generiraj_predloge():
     **3. Ime točno določene lokacije, Kraj**
     Kratek opis...
     [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+    """
+
+    if proracun != "0€ (BREZPLAČNO)":
+        try:
+            odgovor_baze = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
+            podatki = odgovor_baze.data
+
+            if podatki and len(podatki) > 0:
+                sponzor = podatki[0] 
+                if sponzor['ime'] not in ze_predlagano:
+                    
+                    # 1. PYTHON SAM ZGRADI KARTICO ZA SPONZORJA
+                    opis_stranke = sponzor.get('opis', f"Odlična lokalna izbira in preverjeno najboljša izkušnja za vaš izlet!")
+                    sponzorski_tekst_za_vrh = f"**1. {sponzor['ime']}, {lokacija}**\n{opis_stranke}\n[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)\n---\n"
+                    
+                    # 2. SPREMENIMO PRAVILA ZA AI - Zgenerira naj samo točko 2 in 3
+                    stevilo_ai_idej = 2
+                    format_odgovora = """
+    **2. Ime točno določene lokacije, Kraj**
+    Kratek opis...
+    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+    ---
+    **3. Ime točno določene lokacije, Kraj**
+    Kratek opis...
+    [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+    """
+        except Exception as e:
+            print(f"Napaka pri branju iz baze: {e}")
+
+    # ==========================================
+    # PROMPT ZA UMETNO INTELIGENCO
+    # ==========================================
+    prompt = f"""
+    Deluješ kot vrhunski slovenski 'lokalni insider'. 
+    Tvoja naloga je predlagati natanko {stevilo_ai_idej} resnične, obstoječe ideje za izlet na podlagi spodnjih parametrov. Ne piši uvodnih ali zaključnih pozdravov.
+
+    PODATKI UPORABNIKA:
+    - Izhodiščni kraj: {lokacija}
+    - Družba: {druzba}
+    - Proračun: {proracun}
+    - Želeno razpoloženje: {mood}
+    {zgodovina_navodilo}
+
+    STROGA PRAVILA:
+    1. ABSOLUTNA RAZNOLIKOST: Predlogi si morajo biti različni (npr. ena narava/aktivnost, eno kulturno/urbano doživetje).
+    2. SPECIFIČNOST "LOKALCA": Piši točna imena! Ne piši "Sprehodite se ob reki", ampak "Sprehod ob reki Savinji do mestnega parka".
+    3. PREVERJENA RESNIČNOST IN URA: Upoštevaj, da je ura {trenutni_cas}. Po 20:00 uri predlagaj samo varne in odprte večerne lokacije.
+    4. GEOGRAFSKA FLEKSIBILNOST: Če kraj nima dovolj opcij, poišči najboljše ideje v sosednjih vaseh/mestih (maks 15 min vožnje).
+
+    ZAHTEVAN FORMAT ODGOVORA (Strogo se drži tega formata oštevilčenja):
+    {format_odgovora}
     """
 
     try:
@@ -142,7 +133,13 @@ def generiraj_predloge():
 
         if res_data and 'candidates' in res_data and len(res_data['candidates']) > 0:
             odgovor_ai = res_data['candidates'][0]['content']['parts'][0]['text']
-            return jsonify({"odgovor": odgovor_ai})
+            
+            # ==========================================
+            # ZDRUŽITEV: NAŠ OGLAS + AI ODGOVOR
+            # ==========================================
+            koncni_odgovor = sponzorski_tekst_za_vrh + odgovor_ai
+            
+            return jsonify({"odgovor": koncni_odgovor})
         else:
             return jsonify({"error": "AI ni vrnil odgovora."}), 500
 
