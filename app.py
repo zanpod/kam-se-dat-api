@@ -34,32 +34,40 @@ def generiraj_predloge():
     proracun = data.get('proracun')
     trajanje = data.get('trajanje')
     mood = data.get('mood')
+    ze_predlagano = data.get('zePredlagano', []) # NOVO: Preberemo zgodovino iz brskalnika!
 
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
+
+    # ==========================================
+    # LOGIKA ZA ZGODOVINO (Da se AI ne ponavlja)
+    # ==========================================
+    zgodovina_navodilo = ""
+    if ze_predlagano and len(ze_predlagano) > 0:
+        zgodovina_navodilo = f"\nOPOZORILO: Temu uporabniku si danes ŽE PREDLAGAL naslednje lokacije: {', '.join(ze_predlagano)}. TEH LOKACIJ NE SMEŠ VEČ OMENITI! Najdi 3 popolnoma nove.\n"
 
     # ==========================================
     # LOGIKA ZA BAZO SPONZORJEV (MONETIZACIJA)
     # ==========================================
     sponzorsko_navodilo = ""
     
-    # Sponzorje preverjamo samo, če uporabnik ni izbral brezplačnega izleta
     if proracun != "0€ (BREZPLAČNO)":
         try:
-            # Vprašamo bazo: Daj mi aktivnega sponzorja za to lokacijo
             odgovor_baze = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
             podatki = odgovor_baze.data
 
-            # Če smo našli sponzorja
             if podatki and len(podatki) > 0:
-                sponzor = podatki[0] # Vzamemo prvega
-                sponzorsko_navodilo = f"""
+                sponzor = podatki[0] 
+                
+                # Preverimo, da nismo sponzorja slučajno že predlagali prejšnjič
+                if sponzor['ime'] not in ze_predlagano:
+                    sponzorsko_navodilo = f"""
     *** VIP SPONZORSKA ZAHTEVA (ABSOLUTNA PRIORITETA) ***
     Za 1. IDEJO (na prvem mestu) MORAŠ obvezno predlagati točno to lokacijo: '{sponzor['ime']}'. 
     Dodatne informacije naročnika (vključi jih v privlačen opis): '{sponzor.get('opis', '')}'.
     Prilagodi opis te lokacije tako, da se bo popolnoma ujemal z moodom '{mood}' in družbo '{druzba}'.
     Ostali 2 ideji najdita sama, a naj bosta iz preostalih kategorij.
-                """
+                    """
         except Exception as e:
             print(f"Napaka pri branju iz baze: {e}")
 
@@ -80,7 +88,7 @@ def generiraj_predloge():
     TRENUTNO STANJE (ZELO POMEMBNO):
     - Trenutni dan: {trenutni_dan}
     - Trenutna ura: {trenutni_cas}
-
+    {zgodovina_navodilo}
     {sponzorsko_navodilo}
 
     EKSTREMNO STROGA PRAVILA ZA PROFESIONALNO KAKOVOST:
@@ -100,7 +108,7 @@ def generiraj_predloge():
 
     4. PREVERJENA RESNIČNOST IN URA: Ne ugibaj in ne haluciniraj imen! Upoštevaj {trenutni_dan} in {trenutni_cas}. Če je ura po 20:00, ponujaj izključno varne, odprte večerne lokacije (osvetljene poti, nočni razgledi, odprti pubi).
 
-    5. GEOGRAFSKA FLEKSIBILNOST: Če izhodiščni kraj {lokacija} nima dovolj specifičnih opcij (ker je vas ali manjši kraj), samodejno in inteligentno poišči najboljše ideje v sosednjih vaseh ali mestih, ki so oddaljena maksimalno 15-20 minut vožnje.
+    5. GEOGRAFSKA FLEKSIBILNOST: Če izhodiščni kraj {lokacija} nima dovolj specifičnih opcij, samodejno in inteligentno poišči najboljše ideje v sosednjih vaseh ali mestih, ki so oddaljena maksimalno 15-20 minut vožnje.
 
     ZAHTEVAN FORMAT ODGOVORA (Vrni samo ta format, ničesar drugega, ohrani zvezdice in ločila zaradi frontend parserja):
     **1. Ime točno določene lokacije, Kraj**
