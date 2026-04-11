@@ -64,14 +64,22 @@ def generiraj_predloge():
     [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     """
 
+    print(f"--- DEBUG: Začenjam preverjanje baze ---")
+    print(f"--- DEBUG: Izbrani proračun je: '{proracun}' ---")
+    print(f"--- DEBUG: Iskana lokacija je: '{lokacija}' ---")
+
     if proracun != "0€ (BREZPLAČNO)":
         try:
             odgovor_baze = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
             podatki = odgovor_baze.data
+            print(f"--- DEBUG: Baza je vrnila podatke: {podatki} ---")
 
             if podatki and len(podatki) > 0:
                 sponzor = podatki[0] 
+                print(f"--- DEBUG: Našli smo sponzorja: {sponzor['ime']} ---")
+                
                 if sponzor['ime'] not in ze_predlagano:
+                    print("--- DEBUG: VSE JE OK! Sponzor se bo prilepil na vrh! ---")
                     
                     # 1. PYTHON SAM ZGRADI KARTICO ZA SPONZORJA
                     opis_stranke = sponzor.get('opis', f"Odlična lokalna izbira in preverjeno najboljša izkušnja za vaš izlet!")
@@ -88,8 +96,14 @@ def generiraj_predloge():
     Kratek opis...
     [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     """
+                else:
+                    print("--- DEBUG: Sponzor blokiran, ker je že v zgodovini! ---")
+            else:
+                print("--- DEBUG: Baza prazna ali sponzor ni aktiven! ---")
         except Exception as e:
-            print(f"Napaka pri branju iz baze: {e}")
+            print(f"--- DEBUG NAPAKA PRI BAZI: {e} ---")
+    else:
+        print("--- DEBUG: Preskakujem bazo zaradi 0€ proračuna! ---")
 
     # ==========================================
     # PROMPT ZA UMETNO INTELIGENCO
