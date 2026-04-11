@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 # 1. Naložimo nastavitve iz .env datoteke
 load_dotenv()
@@ -11,11 +12,19 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# 2. Varno preberemo ključ iz .env datoteke
+# 2. Varno preberemo ključe iz .env datoteke (ali Render okolja)
 API_KEY = os.environ.get("GEMINI_API_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-if not API_KEY:
-    print("🚨 KRITIČNA NAPAKA: API ključ ni najden!")
+if not API_KEY or not SUPABASE_URL or not SUPABASE_KEY:
+    print("🚨 KRITIČNA NAPAKA: Manjkajo API ključi ali Supabase podatki!")
+
+# 3. Inicializacija Supabase baze
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    print(f"🚨 Napaka pri inicializaciji Supabase: {e}")
 
 @app.route('/generiraj', methods=['POST'])
 def generiraj_predloge():
@@ -29,9 +38,37 @@ def generiraj_predloge():
     trenutni_cas = datetime.now().strftime("%H:%M")
     trenutni_dan = datetime.now().strftime("%A")
 
+    # ==========================================
+    # LOGIKA ZA BAZO SPONZORJEV (MONETIZACIJA)
+    # ==========================================
+    sponzorsko_navodilo = ""
+    
+    # Sponzorje preverjamo samo, če uporabnik ni izbral brezplačnega izleta
+    if proracun != "0€ (BREZPLAČNO)":
+        try:
+            # Vprašamo bazo: Daj mi aktivnega sponzorja za to lokacijo
+            odgovor_baze = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
+            podatki = odgovor_baze.data
+
+            # Če smo našli sponzorja
+            if podatki and len(podatki) > 0:
+                sponzor = podatki[0] # Vzamemo prvega
+                sponzorsko_navodilo = f"""
+    *** VIP SPONZORSKA ZAHTEVA (ABSOLUTNA PRIORITETA) ***
+    Za 1. IDEJO (na prvem mestu) MORAŠ obvezno predlagati točno to lokacijo: '{sponzor['ime']}'. 
+    Dodatne informacije naročnika (vključi jih v privlačen opis): '{sponzor.get('opis', '')}'.
+    Prilagodi opis te lokacije tako, da se bo popolnoma ujemal z moodom '{mood}' in družbo '{druzba}'.
+    Ostali 2 ideji najdita sama, a naj bosta iz preostalih kategorij.
+                """
+        except Exception as e:
+            print(f"Napaka pri branju iz baze: {e}")
+
+    # ==========================================
+    # PROMPT ZA UMETNO INTELIGENCO
+    # ==========================================
     prompt = f"""
-    Deluješ kot strokovni, realistični in ustvarjalni slovenski lokalni vodič. 
-    Tvoja edina naloga je predlagati natanko 3 resnične, obstoječe ideje za izlet ali aktivnost na podlagi spodnjih parametrov. Ne piši uvodnih ali zaključnih pozdravov.
+    Deluješ kot vrhunski slovenski 'lokalni insider' in kurator doživetij. Ne ponujaš dolgočasnih, generičnih turističnih nasvetov, ampak izjemno specifične, preverjene in butične ideje, prilagojene trenutnemu počutju in družbi.
+    Tvoja naloga je predlagati natanko 3 resnične, obstoječe ideje za izlet ali aktivnost na podlagi spodnjih parametrov. Ne piši uvodnih ali zaključnih pozdravov.
 
     PODATKI UPORABNIKA:
     - Izhodiščni kraj: {lokacija}
@@ -44,23 +81,37 @@ def generiraj_predloge():
     - Trenutni dan: {trenutni_dan}
     - Trenutna ura: {trenutni_cas}
 
-    STROGA PRAVILA (Upoštevaj jih brez izjem!):
-    1. PREVERJENA RESNIČNOST: Predlagaj SAMO dejansko obstoječe in odprte lokacije. NE ugibaj komercialnih zabavišč (kot so stari bowling centri), ki so morda zaprti. Izbiraj preverjene točke, a bodi izjemno lokalno specifičen.
-    2. RAZNOLIKOST IN SPECIFIČNOST (KLJUČNO!): Vseh 3 predlogov mora biti med seboj popolnoma različnih. Nikoli ne ponudi treh enakih aktivnosti (npr. ne treh sprehodov ali treh restavracij). Kombiniraj! Ponudi npr. 1x specifično kavarno z znano sladico (Uporabi TOČNO ime lokala, npr. "Kavarna Zvezda", ne "neka kavarna"), 1x skrit lokalni kotiček v naravi in 1x kulturni ali urbani utrip.
-    3. ČAS IN ODPIRALNOST: Upoštevaj, da je danes {trenutni_dan} in ura {trenutni_cas}. Če je večer/noč (po 20:00), predlagaj večerne sprehode, nočne razglede ali odprte pube/lokale, ki dejansko delajo pozno.
-    4. LOGIKA ODDALJENOSTI: Če je čas "{trajanje}" kratek (npr. "Do 2 uri"), morajo biti lokacije v neposredni bližini kraja {lokacija} (maksimalno 15 minut stran).
-    5. PRORAČUN: Če je izbran proračun "0€ (BREZPLAČNO)", so kavarne in restavracije strogo prepovedane. V tem primeru raznolikost dosezi drugače: 1x specifična gozdna pot/hrib, 1x zanimiva arhitektura/ulica in 1x klopca z najboljšim razgledom v tistem kraju.
+    {sponzorsko_navodilo}
 
-    ZAHTEVAN FORMAT ODGOVORA (Vrni samo ta format, ničesar drugega):
-    **1. Ime resnične lokacije/lokala, Kraj**
-    Kratek opis (1-2 stavka o tem, zakaj je to super izbira in kaj točno naj tam počnejo ali poskusijo).
+    EKSTREMNO STROGA PRAVILA ZA PROFESIONALNO KAKOVOST:
+    1. PRAVILO TREH KATEGORIJ (ABSOLUTNA RAZNOLIKOST): Vseh 3 predlogov mora biti iz popolnoma različnih svetov. NIKOLI ne ponudi dveh istih tipov aktivnosti.
+       - Če proračun NI 0€, strukturiraj tako: 
+         * 1. ideja: KULINARIKA / HEDONIZEM (specifična kavarna, slaščičarna, vinska klet ali restavracija - navedi točno ime!).
+         * 2. ideja: NARAVA / AKTIVNOST (točno določena sprehajalna pot, jezero, hrib ali razgledna točka).
+         * 3. ideja: DOŽIVETJE / URBANI UTRIP (kultura, muzej, grad, wellness, ali specifičen trg v mestu).
+       - Če proračun JE "0€ (BREZPLAČNO)", strukturiraj tako: 
+         * 1. ideja: SKRIT NARAVNI KOTIČEK (ne najbolj znana pot, ampak nekaj bolj lokalnega in mirnega).
+         * 2. ideja: URBANI SPREHOD / ARHITEKTURA (zanimiv del mesta, trg, stare uličice).
+         * 3. ideja: NAJBOLJŠI LOKALNI RAZGLED (specifična točka za opazovanje sončnega zahoda ali mesta).
+         
+    2. SPECIFIČNOST "LOKALCA": Ne piši "Pojdite v eno izmed lokalnih kavarn". Piši "Naročite domačo torto v Kavarni Zvezda". Ne piši "Sprehodite se ob reki". Piši "Sprehodite se po levem bregu Savinje do mostu...". Navedi TOČNA IN RESNIČNA IMENA lokalov in lokacij.
+
+    3. PRILAGODITEV MOODU IN DRUŽBI: Odgovor mora vibrirati z izbranim počutjem. Če je mood "{mood}" in družba "{druzba}", mora opis jasno odražati, zakaj je to popolna izbira za točno to situacijo.
+
+    4. PREVERJENA RESNIČNOST IN URA: Ne ugibaj in ne haluciniraj imen! Upoštevaj {trenutni_dan} in {trenutni_cas}. Če je ura po 20:00, ponujaj izključno varne, odprte večerne lokacije (osvetljene poti, nočni razgledi, odprti pubi).
+
+    5. GEOGRAFSKA FLEKSIBILNOST: Če izhodiščni kraj {lokacija} nima dovolj specifičnih opcij (ker je vas ali manjši kraj), samodejno in inteligentno poišči najboljše ideje v sosednjih vaseh ali mestih, ki so oddaljena maksimalno 15-20 minut vožnje.
+
+    ZAHTEVAN FORMAT ODGOVORA (Vrni samo ta format, ničesar drugega, ohrani zvezdice in ločila zaradi frontend parserja):
+    **1. Ime točno določene lokacije, Kraj**
+    Kratek opis (2-3 stavki, pisan doživljajsko, prodajno in privlačno. Razloži, KAJ točno naj tam počnejo, jedo ali vidijo, ter zakaj ustreza njihovemu počutju).
     [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     ---
-    **2. Ime resnične lokacije/lokala, Kraj**
+    **2. Ime točno določene lokacije, Kraj**
     Kratek opis...
     [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     ---
-    **3. Ime resnične lokacije/lokala, Kraj**
+    **3. Ime točno določene lokacije, Kraj**
     Kratek opis...
     [📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
     """
