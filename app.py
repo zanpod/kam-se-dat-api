@@ -1,4 +1,5 @@
 import os
+import random  # <--- NOVA KNJIŽNICA ZA NAKLJUČNO IZBIRO SPONZORJA
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -48,69 +49,81 @@ def generiraj_predloge():
 
         trenutni_cas = datetime.now().strftime("%H:%M")
 
+        # ====================== SPONZOR IN PRIPRAVA ======================
         sponzorski_tekst = ""
         stevilo_ai_idej = 3
-        format_odgovora = """
-**1. Ime lokacije, Kraj**
-Kratek opis...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
----
-**2. Ime lokacije, Kraj**
-Kratek opis...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
----
-**3. Ime lokacije, Kraj**
-Kratek opis...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
-"""
+        zacetna_stevilka = 1
 
-        # ====================== SPONZOR LOGIKA ======================
         if proracun != "0€ (BREZPLAČNO)" and supabase:
             try:
+                # Baza zdaj vrne VSE aktivne sponzorje v tem mestu
                 res = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
+                
                 if res.data and len(res.data) > 0:
-                    sponzor = res.data[0]
-                    if sponzor['ime'] not in ze_predlagano:
+                    # Izločimo tiste, ki jih je uporabnik v tej seji že videl
+                    dostopni_sponzorji = [s for s in res.data if s['ime'] not in ze_predlagano]
+                    
+                    if dostopni_sponzorji:
+                        # NAKLJUČNO izberemo enega sponzorja izmed dostopnih
+                        sponzor = random.choice(dostopni_sponzorji)
+                        
                         maps_q = f"{sponzor['ime']}, {lokacija}".replace(" ", "+")
                         opis = sponzor.get('opis', "Odlična lokalna izbira!")
                         
                         sponzorski_tekst = f"**1. {sponzor['ime']}, {lokacija}**\n{opis}\n[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query={maps_q})\n---\n"
                         
                         stevilo_ai_idej = 2
-                        format_odgovora = """
-**2. Ime lokacije, Kraj**
-Kratek opis...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
----
-**3. Ime lokacije, Kraj**
-Kratek opis...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
-"""
+                        zacetna_stevilka = 2
                         print(f"✅ Sponzor dodan: {sponzor['ime']}")
             except Exception as e:
                 print(f"🚨 Napaka pri branju sponzorjev: {e}")
 
-        # ====================== AI PROMPT ======================
-        prompt = f"""
-Deluješ kot slovenski lokalni insider. Predlagaj {stevilo_ai_idej} ideje za izlet.
-Lokacija: {lokacija}, Družba: {druzba}, Proračun: {proracun}, Mood: {mood}, Ura: {trenutni_cas}.
-Ne ponavljaj lokacij: {ze_predlagano}. Uporabi točna imena obstoječih lokacij (max 20 min vožnje).
+        # ====================== AI PROMPT (STROGO) ======================
+        if zacetna_stevilka == 2:
+            format_odgovora = """**2. Ime lokacije, Kraj**
+Podroben in privlačen opis lokacije (vsaj 3 stavki)...
+[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+---
+**3. Ime lokacije, Kraj**
+Podroben in privlačen opis lokacije (vsaj 3 stavki)...
+[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)"""
+        else:
+            format_odgovora = """**1. Ime lokacije, Kraj**
+Podroben in privlačen opis lokacije (vsaj 3 stavki)...
+[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+---
+**2. Ime lokacije, Kraj**
+Podroben in privlačen opis lokacije (vsaj 3 stavki)...
+[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)
+---
+**3. Ime lokacije, Kraj**
+Podroben in privlačen opis lokacije (vsaj 3 stavki)...
+[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+Lokacije,+Kraj)"""
 
-FORMAT:
-{format_odgovora}
-"""
+        prompt = f"""
+        Deluješ kot slovenski lokalni insider. Predlagaj natanko {stevilo_ai_idej} ideje za izlet.
+        Lokacija: {lokacija}, Družba: {druzba}, Proračun: {proracun}, Mood: {mood}, Ura: {trenutni_cas}.
+        Ne ponavljaj lokacij: {ze_predlagano}. Uporabi točna imena obstoječih lokacij.
+
+        STROGA PRAVILA ZA FORMAT:
+        1. NE piši absolutno nobenih uvodnih pozdravov ali stavkov (npr. "Tukaj sta dva predloga...").
+        2. NE piši nobenih zaključnih besed.
+        3. Odgovor naj bo IZKLJUČNO v spodnjem formatu (oštevilčenje se mora natančno ujemati):
+
+        {format_odgovora}
+        """
 
         # ====================== AI KLIC ======================
         if not API_KEY:
             return jsonify({"error": "Strežnik nima API ključa za Google Gemini."}), 500
 
-        # UPORABA STABILNEGA MODELA
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+        # Trenutno je nastavljeno na stabilen model 1.5-flash. 
+        # Če ti dela 2.0, zamenjaj '1.5-flash' z '2.0-flash'.
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
         
         res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]})
         res_data = res.json()
 
-        # PAMETNO LOVLJENJE NAPAK (Prepreči [object Object])
         if 'error' in res_data:
             error_msg = res_data['error'].get('message', str(res_data['error']))
             print(f"🚨 GOOGLE API NAPAKA: {error_msg}")
@@ -120,6 +133,10 @@ FORMAT:
             return jsonify({"error": "AI ni vrnil odgovora."}), 500
 
         ai_odgovor = res_data['candidates'][0]['content']['parts'][0]['text']
+        
+        # Očistimo morebitne prazne vrstice na začetku, da UI ne razpade
+        ai_odgovor = ai_odgovor.strip()
+
         koncni_odgovor = sponzorski_tekst + ai_odgovor
 
         return jsonify({"odgovor": koncni_odgovor.strip()})
