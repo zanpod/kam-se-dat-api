@@ -55,8 +55,6 @@ def generiraj_predloge():
         stevilo_ai_idej = 3
         zacetna_stevilka = 1 
 
-        # KLJUČNO: Sponzor (lokal iz baze) se prikaže SAMO, če je trajanje "2 uri".
-        # Za "Pol dneva" ali "Cel dan" ljudje iščejo izlete, ne le kave.
         dovoljen_cas_za_sponzorja = "2" in str(trajanje)
 
         if proracun != "0€ (BREZPLAČNO)" and dovoljen_cas_za_sponzorja and supabase:
@@ -80,17 +78,15 @@ def generiraj_predloge():
             except Exception as e:
                 print(f"🚨 Napaka pri branju sponzorjev: {e}")
 
-        # ====================== MOČAN PROMPT (SMERNI) ======================
-        
-        # Dinamično prilagajanje navodil glede na trajanje
+        # ====================== MOČAN PROMPT ======================
         if "2" in str(trajanje):
             logika_izleta = "Predlagaj hitre in sproščene aktivnosti (kava, kratek sprehod, razgledna točka)."
         else:
-            logika_izleta = "Predlagaj VSEBINSKO BOGATE izlete. To pomeni kombinacijo dveh stvari (npr. pohod + ogled gradu, obisk jezera + kosilo, termalni park + sprehod). Ne predlagaj samo ene restavracije!"
+            logika_izleta = "Predlagaj VSEBINSKO BOGATE izlete. To pomeni kombinacijo dveh stvari (npr. pohod + ogled gradu, obisk jezera + muzej)."
 
         prompt = f"""
         Deluješ kot vrhunski slovenski lokalni insider 'Kam se dat!?'. 
-        Tvoj cilj je navdušiti uporabnika z REALNIMI lokacijami.
+        Tvoj cilj je navdušiti uporabnika z 100% REALNIMI lokacijami.
 
         PODATKI:
         - Lokacija: {lokacija}
@@ -98,11 +94,11 @@ def generiraj_predloge():
         - Družba: {druzba}, Proračun: {proracun}, Mood: {mood}
         - Že predlagano: {ze_predlagano}
 
-        STROGA PRAVILA:
-        1. PREPOVED HALUCINACIJ: Ne izmišljuj si imen restavracij ali krajev. Če ne veš, predlagaj naravno znamenitost ali glavni trg.
-        2. LOGIKA ČASA: Če je trajanje 'Pol dneva', mora biti predlog tak, da dejansko zapolni ta čas.
-        3. FORMAT: NE piši uvodov. Odgovor začni neposredno s številko {zacetna_stevilka}.
-        4. ZEMLJEVID: Vsaka točka MORA imeti povezavo: [📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
+        STROGA PRAVILA ZA PREPREČEVANJE HALUCINACIJ:
+        1. NE IZMIŠLJUJ SI IMEN ZASEBNIH LOKALOV ALI RESTAVRACIJ! Če za določeno mesto (npr. Slovenske Konjice) ne poznaš 100% točnega in obstoječega lokala, predlagaj JAVNE ZNAMENITOSTI (grad, park, jezero, cerkev, hrib) ali pa uporabi splošen izraz (npr. "lokalna kavarna na trgu").
+        2. Imena znamenitosti morajo biti resnična.
+        3. NE piši uvodov. Odgovor začni neposredno s številko {zacetna_stevilka}.
+        4. Vsaka točka MORA imeti povezavo: [📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
 
         FORMAT IZPISA:
         **[Številka]. Ime lokacije, Kraj**
@@ -115,10 +111,19 @@ def generiraj_predloge():
         if not API_KEY:
             return jsonify({"error": "Manjka API ključ."}), 500
 
-        # Uporabljamo 2.5-flash, ki je trenutno najzmogljivejša stabilna verzija
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
         
-        res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]})
+        # TUKAJ JE KLJUČNA SPREMEMBA: Dodali smo "generationConfig" s temperaturo 0.15
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.15,
+                "topK": 32,
+                "topP": 0.8
+            }
+        }
+        
+        res = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
         res_data = res.json()
 
         if 'error' in res_data:
