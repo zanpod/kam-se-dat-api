@@ -38,7 +38,6 @@ def generiraj_predloge():
     try:
         data = request.json or {}
 
-        # Očistimo vhodne podatke
         surova_lokacija = data.get('lokacija', 'Slovenija')
         lokacija = surova_lokacija.strip().capitalize()
         
@@ -56,24 +55,22 @@ def generiraj_predloge():
 
         if proracun != "0€ (BREZPLAČNO)" and supabase:
             try:
-                # Pridobimo vse aktivne sponzorje za to lokacijo
                 res = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
                 
                 if res.data and len(res.data) > 0:
-                    # Izberemo tiste, ki še niso bili predlagani v tej seji
                     dostopni_sponzorji = [s for s in res.data if s['ime'] not in ze_predlagano]
                     
                     if dostopni_sponzorji:
-                        # Naključna izbira med sponzorji v mestu
                         sponzor = random.choice(dostopni_sponzorji)
                         
-                        # Uporabimo točen naslov za Maps, če obstaja, sicer mesto
+                        # PRAVI NASLOV ZA MAPS:
                         naslov_za_maps = sponzor.get('naslov', lokacija)
                         maps_q = f"{sponzor['ime']}, {naslov_za_maps}".replace(" ", "+")
                         
                         opis = sponzor.get('opis', "Odlična lokalna izbira!")
                         
-                        sponzorski_tekst = f"**1. {sponzor['ime']}, {lokacija}**\n{opis}\n[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query={maps_q})\n---\n"
+                        # ZDAJ UPORABLJA PRAVI GOOGLE MAPS LINK
+                        sponzorski_tekst = f"**1. {sponzor['ime']}, {lokacija}**\n{opis}\n[📍 Prikaži na zemljevidu](https://maps.google.com/maps?q={maps_q})\n---\n"
                         
                         stevilo_ai_idej = 2
                         zacetna_stevilka = 2 
@@ -85,23 +82,23 @@ def generiraj_predloge():
         if zacetna_stevilka == 2:
             format_navodila = f"""**2. Ime lokacije, Kraj**
 Opis v vsaj treh stavkih...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+lokacije)
+[📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
 ---
 **3. Ime lokacije, Kraj**
 Opis v vsaj treh stavkih...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+lokacije)"""
+[📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)"""
         else:
             format_navodila = f"""**1. Ime lokacije, Kraj**
 Opis v vsaj treh stavkih...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+lokacije)
+[📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
 ---
 **2. Ime lokacije, Kraj**
 Opis v vsaj treh stavkih...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+lokacije)
+[📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
 ---
 **3. Ime lokacije, Kraj**
 Opis v vsaj treh stavkih...
-[📍 Prikaži na zemljevidu](https://www.google.com/maps/search/?api=1&query=Ime+lokacije)"""
+[📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)"""
 
         prompt = f"""
         Deluješ kot slovenski lokalni insider. Predlagaj natanko {stevilo_ai_idej} ideje za izlet.
@@ -120,7 +117,6 @@ Opis v vsaj treh stavkih...
         if not API_KEY:
             return jsonify({"error": "Manjka API ključ."}), 500
 
-        # Nastavljeno na Gemini 2.5 Flash
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
         
         res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]})
