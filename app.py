@@ -105,7 +105,7 @@ FORMAT:
             return jsonify({"error": "Strežnik nima API ključa za Google Gemini."}), 500
 
         # UPORABA STABILNEGA MODELA
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
         
         res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]})
         res_data = res.json()
