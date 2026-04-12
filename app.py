@@ -120,8 +120,8 @@ Opis v vsaj treh stavkih...
         if not API_KEY:
             return jsonify({"error": "Manjka API ključ."}), 500
 
-        # Nastavljeno na Gemini 2.0 Flash
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
+        # Nastavljeno na Gemini 2.5 Flash
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
         
         res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]})
         res_data = res.json()
