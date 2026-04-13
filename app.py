@@ -31,6 +31,42 @@ if SUPABASE_URL and SUPABASE_KEY and create_client:
     except Exception as e:
         print(f"❌ Napaka pri bazi: {e}")
 
+# ====================== API FUNKCIJE AGENTA ======================
+def pridobi_trenutno_vreme(lokacija):
+    """Kliče zunanje brezplačne API-je za pridobitev vremena v realnem času."""
+    try:
+        # 1. Geocoding API (Pridobi koordinate mesta)
+        geo_url = f"https://nominatim.openstreetmap.org/search?q={lokacija},+Slovenija&format=json&limit=1"
+        headers = {'User-Agent': 'KamSeDatAgent/1.0'}
+        geo_res = requests.get(geo_url, headers=headers, timeout=3).json()
+        
+        if not geo_res:
+            return "Neznano"
+            
+        lat = geo_res[0]['lat']
+        lon = geo_res[0]['lon']
+        
+        # 2. Vremenski API (Open-Meteo)
+        weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+        w_res = requests.get(weather_url, timeout=3).json()
+        
+        if 'current_weather' in w_res:
+            temp = w_res['current_weather']['temperature']
+            w_code = w_res['current_weather']['weathercode']
+            
+            # WMO interpretacija vremenskih kod
+            opis = "Jasno ali delno oblačno ⛅"
+            if w_code in [51, 53, 55, 61, 63, 65, 80, 81, 82]: opis = "Dežuje 🌧️"
+            elif w_code in [71, 73, 75, 85, 86]: opis = "Sneži ❄️"
+            elif w_code in [95, 96, 99]: opis = "Nevihta ⛈️"
+            elif w_code in [45, 48]: opis = "Megla 🌫️"
+            
+            return f"{temp}°C, {opis}"
+    except Exception as e:
+        print(f"⚠️ Napaka pri vremenskem API-ju: {e}")
+    
+    return "Podatek ni na voljo"
+
 # ====================== GLAVNA POT ======================
 @app.route('/generiraj', methods=['POST'])
 def generiraj_predloge():
@@ -40,7 +76,7 @@ def generiraj_predloge():
         # Osnovni podatki iz frontenda
         surova_lokacija = data.get('lokacija', 'Slovenija')
         lokacija = surova_lokacija.strip().capitalize()
-       
+        
         druzba = data.get('druzba', 'S prijatelji')
         proracun = data.get('proracun', 'Zmerno')
         trajanje = data.get('trajanje', 'Do 2 uri')
@@ -48,6 +84,9 @@ def generiraj_predloge():
         ze_predlagano = data.get('zePredlagano', [])
         
         trenutni_cas = datetime.now().strftime("%H:%M")
+        
+        # AGENT KLICE ZUNANJE API-je PREDEN RAZMISLI:
+        trenutno_vreme = pridobi_trenutno_vreme(lokacija)
 
         # ====================== PAMETNA SPONZOR LOGIKA ======================
         sponzorski_tekst = ""
@@ -58,70 +97,74 @@ def generiraj_predloge():
         if proracun != "0€ (BREZPLAČNO)" and dovoljen_cas_za_sponzorja and supabase:
             try:
                 res = supabase.table('sponzorji').select('*').eq('lokacija', lokacija).eq('aktiven', True).execute()
-               
+                
                 if res.data and len(res.data) > 0:
                     dostopni_sponzorji = [s for s in res.data if s['ime'] not in ze_predlagano]
-                   
+                    
                     if dostopni_sponzorji:
                         sponzor = random.choice(dostopni_sponzorji)
                         naslov_za_maps = sponzor.get('naslov', lokacija)
                         maps_q = f"{sponzor['ime']}, {naslov_za_maps}".replace(" ", "+")
                         opis = sponzor.get('opis', "Odlična lokalna izbira!")
-                       
+                        
                         sponzorski_tekst = f"**1. {sponzor['ime']}, {lokacija}**\n{opis}\n[📍 Prikaži na zemljevidu](https://maps.google.com/maps?q={maps_q})\n---\n"
-                       
+                        
                         stevilo_ai_idej = 2
                         zacetna_stevilka = 2
                         print(f"✅ Sponzor '{sponzor['ime']}' izbran za kratek izlet.")
             except Exception as e:
                 print(f"🚨 Napaka pri branju sponzorjev: {e}")
 
-        # ====================== MOČAN PROMPT (izboljšan za Gemini 2.5) ======================
+        # ====================== AGENT PROMPT ======================
         if "2" in str(trajanje):
             logika_izleta = "Predlagaj hitre in sproščene aktivnosti (kava, kratek sprehod, razgledna točka)."
         else:
             logika_izleta = "Predlagaj VSEBINSKO BOGATE izlete. To pomeni kombinacijo dveh stvari (npr. pohod + ogled gradu, obisk jezera + muzej)."
 
         prompt = f"""
-Deluješ kot vrhunski slovenski lokalni insider 'Kam se dat!?'.
-Tvoj cilj je navdušiti uporabnika z 100% REALNIMI lokacijami.
+        Deluješ kot vrhunski slovenski lokalni AI AGENT 'Kam se dat!?'. Tvoja supermoč je iskanje po spletu in analiziranje zunanjih API-jev.
+        Tvoj cilj je navdušiti uporabnika z 100% REALNIMI, PREVERJENIMI lokacijami.
 
-PODATKI:
-- Lokacija: {lokacija}
-- Trajanje: {trajanje} ({logika_izleta})
-- Družba: {druzba}, Proračun: {proracun}, Mood: {mood}
-- Že predlagano: {ze_predlagano}
+        TRENUTNI PODATKI V ŽIVO:
+        - Lokacija: {lokacija}
+        - Vreme na tej lokaciji: {trenutno_vreme} 
+        - Ura: {trenutni_cas}
+        - Trajanje: {trajanje} ({logika_izleta})
+        - Družba: {druzba}, Proračun: {proracun}, Mood: {mood}
+        - Že predlagano: {ze_predlagano}
 
-STROGA PRAVILA ZA PREPREČEVANJE HALUCINACIJ (Gemini 2.5):
-1. NE IZMIŠLJUJ SI IMEN ZASEBNIH LOKALOV ALI RESTAVRACIJ! Če za določeno mesto ne poznaš 100% točnega in obstoječega lokala, predlagaj JAVNE ZNAMENITOSTI (grad, park, jezero, cerkev, hrib) ali pa uporabi splošen izraz (npr. "lokalna kavarna na trgu").
-2. Imena znamenitosti morajo biti resnična in obstoječa.
-3. NAJPOMEMBNEJŠE PRAVILO: Če nisi 100% prepričan, da lokacija ali lokal res obstaja, NE predlagaj ničesar izmišljenega. Raje uporabi samo zelo znane javne znamenitosti ali splošen izraz. Če za dano lokacijo in trajanje nimaš zanesljivih realnih predlogov, napiši: "Za to kombinacijo trenutno nimam 100% zanesljivih predlogov."
-4. NE piši uvodov. Odgovor začni neposredno s številko {zacetna_stevilka}.
-5. Vsaka točka MORA imeti povezavo: [📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
+        PRAVILA AGENTA ZA PREPREČEVANJE HALUCINACIJ IN UPORABO PODATKOV:
+        1. VREMENSKA LOGIKA: Upoštevaj vreme v živo! Če piše, da 'Dežuje' ali 'Sneži' ali so zelo nizke temperature, OBVEZNO predlagaj izključno NOTRANJE AKTIVNOSTI (muzeji, gradovi, dvorane, toplice). Če je 'Jasno', pošlji ljudi v naravo!
+        2. UPORABI GOOGLE SEARCH: Preveri obstoj vsake restavracije, lokala ali znamenitosti. Če Google ne najde potrditve, te lokacije NE SMEŠ predlagati!
+        3. NE IZMIŠLJUJ SI IMEN! Imena morajo biti točna (kot na Google Maps).
+        4. Če v kraju ne najdeš primernega 100% obstoječega lokala/znamenitosti, predlagaj tiste najbolj znane naravne znamenitosti v bližini.
+        5. NE piši uvodov in zaključkov. Odgovor začni neposredno s številko {zacetna_stevilka}.
+        6. Vsaka točka MORA imeti povezavo: [📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
 
-FORMAT IZPISA:
-**[Številka]. Ime lokacije, Kraj**
-Opis (vsaj 3 sočni stavki o tem, zakaj se splača iti tja)...
-[📍 Prikaži na zemljevidu](...)
----
-"""
+        FORMAT IZPISA (točno {stevilo_ai_idej} ideji):
+        **[{zacetna_stevilka}]. Ime lokacije, Kraj**
+        Opis (vsaj 3 sočni stavki o tem, zakaj se splača iti tja. Podatki morajo biti resnični in preverjeni na spletu!)...
+        [📍 Prikaži na zemljevidu](...)
+        ---
+        """
 
-        # ====================== GEMINI API KLIC (Gemini 2.5 Flash) ======================
+        # ====================== GEMINI API KLIC Z AGENTOM (Search Grounding) ======================
         if not API_KEY:
             return jsonify({"error": "Manjka API ključ."}), 500
 
-        # Posodobljen model + maksimalna determinističnost
+        # Model Gemini 2.5 Flash
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
-       
+        
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
+            "tools": [{"google_search": {}}], # Vklopi agenta za iskanje po Googlu
             "generationConfig": {
-                "temperature": 0.0,      # Najnižja možna temperatura za minimalne halucinacije
+                "temperature": 0.1,      # Nizka temperatura za fokus na dejstva
                 "topK": 1,
                 "topP": 0.1
             }
         }
-       
+        
         res = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
         res_data = res.json()
 
