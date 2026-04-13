@@ -117,9 +117,9 @@ def generiraj_predloge():
 
         # ====================== AGENT PROMPT ======================
         if "2" in str(trajanje):
-            logika_izleta = "Predlagaj hitre in sproščene aktivnosti (kava, kratek sprehod, razgledna točka)."
+            logika_izleta = "Predlagaj hitre in sproščene aktivnosti (npr. preverjena kavarna, slaščičarna, kratek sprehod, razgledna točka)."
         else:
-            logika_izleta = "Predlagaj VSEBINSKO BOGATE izlete. To pomeni kombinacijo dveh stvari (npr. pohod + ogled gradu, obisk jezera + muzej)."
+            logika_izleta = "Predlagaj VSEBINSKO BOGATE izlete. To pomeni kombinacijo dveh stvari (npr. pohod + preverjena restavracija, obisk narave ali muzeja + dobra kava)."
 
         prompt = f"""
         Deluješ kot vrhunski slovenski lokalni AI AGENT 'Kam se dat!?'. Tvoja supermoč je iskanje po spletu in analiziranje zunanjih API-jev.
@@ -134,10 +134,10 @@ def generiraj_predloge():
         - Že predlagano: {ze_predlagano}
 
         PRAVILA AGENTA ZA PREPREČEVANJE HALUCINACIJ IN UPORABO PODATKOV:
-        1. VREMENSKA LOGIKA: Upoštevaj vreme v živo! Če piše, da 'Dežuje' ali 'Sneži' ali so zelo nizke temperature, OBVEZNO predlagaj izključno NOTRANJE AKTIVNOSTI (muzeji, gradovi, dvorane, toplice). Če je 'Jasno', pošlji ljudi v naravo!
-        2. UPORABI GOOGLE SEARCH: Preveri obstoj vsake restavracije, lokala ali znamenitosti. Če Google ne najde potrditve, te lokacije NE SMEŠ predlagati!
-        3. NE IZMIŠLJUJ SI IMEN! Imena morajo biti točna (kot na Google Maps).
-        4. Če v kraju ne najdeš primernega 100% obstoječega lokala/znamenitosti, predlagaj tiste najbolj znane naravne znamenitosti v bližini.
+        1. VREMENSKA LOGIKA: Upoštevaj vreme v živo! Če piše, da 'Dežuje' ali 'Sneži' ali so zelo nizke temperature, OBVEZNO predlagaj izključno NOTRANJE AKTIVNOSTI (muzeji, preverjene kavarne, gradovi, toplice). Če je 'Jasno', pošlji ljudi v naravo!
+        2. PREVERJANJE LOKALOV IN RESTAVRACIJ: Lahko predlagaš kavarne, restavracije in bare, VENDAR si imen NE SMEŠ izmišljevati! Predlagaš lahko SAMO tiste, ki si jih dejansko preveril prek iskalnika in 100% obstajajo v tem kraju na Google Zemljevidih.
+        3. UPORABI GOOGLE SEARCH: Preveri obstoj vsake znamenitosti in lokala, ki ga želiš predlagati. Če Google Search ne najde jasne potrditve (ocen, naslova), te lokacije NE SMEŠ predlagati!
+        4. NE IZMIŠLJUJ SI IMEN! Imena morajo biti točna. Če za kraj nimaš preverjenih lokalov, raje predlagaj samo znane javne naravne in kulturne znamenitosti v bližini.
         5. NE piši uvodov in zaključkov. Odgovor začni neposredno s številko {zacetna_stevilka}.
         6. Vsaka točka MORA imeti povezavo: [📍 Prikaži na zemljevidu](https://maps.google.com/maps?q=Ime+Lokacije,+Kraj)
 
